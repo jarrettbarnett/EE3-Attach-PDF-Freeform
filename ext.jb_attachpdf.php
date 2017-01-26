@@ -27,9 +27,7 @@ class Jb_attachpdf_ext
     function activate_extension()
     {
         $hooks = array(
-            'freeform_module_user_notification' => 'freeform_module_user_notification',
-            'freeform_module_insert_end' => 'generate_pdf',
-            'email_send' => 'email_send',
+            'freeform_module_insert_end' => 'generate_pdf'
         );
 
         // activate hooks
@@ -56,6 +54,13 @@ class Jb_attachpdf_ext
         ee()->db->insert('actions', $action_data);
     }
 
+    /**
+     * Build PDF
+     *
+     * @param $template_path
+     * @param $upload_field_settings
+     * @return string
+     */
     function build_pdf($template_path, $upload_field_settings)
     {
         $filename = 'custom-report-' . date('YmdHis') . '-' . rand(10000,9999999) . '.pdf';
@@ -70,11 +75,10 @@ class Jb_attachpdf_ext
             'filename'      => $filename,
             'cache_enabled' => false
         );
-        //$pdf_output = ee()->extensions->call('pdf_press_generate_pdf', $pdf_template_path, $settings);
+        $pdf_output = ee()->extensions->call('pdf_press_generate_pdf', $pdf_template_path, $settings);
 
         // store pdf
-        //file_put_contents(FCPATH . $upload_field_settings['upload_path'] . $filename, $pdf_output);
-        $filename = 'custom-report-201701251429315726736.pdf';
+        file_put_contents(FCPATH . $upload_field_settings['upload_path'] . $filename, $pdf_output);
 
         return $filename;
     }
@@ -113,6 +117,8 @@ class Jb_attachpdf_ext
      * Generate PDF
      *
      * Generate and insert PDF Into FreeForm entry
+     *
+     * @hook freeform_module_insert_end
      *
      * @param $field_input_data
      * @param $entry_id
@@ -171,88 +177,6 @@ class Jb_attachpdf_ext
         ee()->db->insert('freeform_file_uploads', $data);
 
         return $field_input_data;
-    }
-
-    /**
-     * Send Email / Attach PDF (since FreeForm hooks are useless and currently unable to attach files via their hooks)
-     *
-     * @param $headers
-     * @param $header_str
-     * @param $recipients
-     * @param $cc_array
-     * @param $bcc_array
-     * @param $subject
-     * @param $finalbody
-     * @return bool|void
-     */
-    function email_send($headers, $header_str, $recipients, $cc_array, $bcc_array, $subject, $finalbody)
-    {
-        if (ee()->extensions->active_hook('pdf_press_generate_pdf') !== TRUE)
-        {
-            return false;
-        }
-
-        // if email contains our report, attach it
-        if (strpos($headers['finalbody'], '%%jb_attachpdf%%') > -1)
-        {
-            ee()->email->attach($this->pdf);
-        }
-
-        return;
-
-        // take over emails ending
-        //ee()->extensions->end_script = true;
-
-        // return spool value
-        //return true;
-    }
-
-    /**
-     * Add Attachments To User Notification
-     *
-     * Updating FreeForm with attachment information, even though it doesnt do anything due to the hook being called TOO LATE
-     * Maybe this will change in the future so I'll leave this here for good measure
-     */
-    function freeform_module_user_notification($field_labels, $entry_id, $variables, $form_id, $freeform)
-    {
-        if (ee()->extensions->active_hook('pdf_press_generate_pdf') !== TRUE)
-        {
-            return $variables;
-        }
-
-        // get attachments for freeform_id: $entry_id
-        $results = ee()->db->select('*')->from('freeform_file_uploads')->where([
-            'entry_id' => $entry_id
-        ])->get();
-
-        // stop here if no attachments exist for submission
-        if ($results->num_rows() == 0)
-        {
-            return $variables;
-        }
-
-        // we use this to determine what emails to attach
-        $variables['bcc_recipients'][] = 'pdf_press+'.$entry_id.'@jarrettbarnett.com';
-
-//        $count = 0;
-//        $field_input_data = $variables['field_inputs'];
-//
-//        foreach ($results->result_array() as $row)
-//        {
-//            // strip out document root so we only end up with relative upload path
-//            $upload_path = '/' . str_replace(FCPATH, '', $row['server_path']);
-//            $variables['attachments'][] = [
-//                'fileurl' => $upload_path . $row['filename'],
-//                'filename' => $row['filename']
-//            ];
-//            $count++;
-//        }
-//
-//        $variables['attachment_count'] = $count;
-//        $variables[$field_input_data['pdf_press_fieldname']] = $variables['attachments'];
-//        $variables['pdf_press_filename_fieldname'] = '%%JB_ATTACHPDF%%' . $entry_id . '%%';
-
-        return $variables;
     }
 
     /**
