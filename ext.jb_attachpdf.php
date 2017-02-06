@@ -95,6 +95,11 @@ class Jb_attachpdf_ext
             'field_name' => $field_name
         ])->limit(1)->get();
 
+        if ($results->num_rows() == 0)
+        {
+            exit('Error: Freeform file_upload field with name "'.$field_name.'" cannot be found.');
+        }
+
         $settings = json_decode($results->row('settings'), true);
 
         $upload_results = ee()->db->select('*')->from('upload_prefs')->where([
